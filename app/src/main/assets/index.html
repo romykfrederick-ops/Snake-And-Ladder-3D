@@ -1,0 +1,2543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0f172a" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<title>Snakes &amp; Ladders 3D: Power-Up Edition</title>
+<style>
+  :root {
+    --bg-dark: #0b1120;
+    --panel-bg: rgba(15, 23, 42, 0.88);
+    --panel-border: rgba(148, 163, 184, 0.22);
+    --accent: #f59e0b;
+    --accent-glow: rgba(245, 158, 11, 0.45);
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --success: #10b981;
+    --danger: #ef4444;
+    --info: #38bdf8;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 25%, #1e293b 0%, #090d16 100%);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text-main);
+    touch-action: none;
+  }
+
+  #app {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  /* 3D Canvas Viewport */
+  #canvas-container {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    overflow: hidden;
+  }
+
+  canvas#gameCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Top HUD Bar */
+  .top-hud {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: max(8px, env(safe-area-inset-top)) 10px 6px;
+    background: linear-gradient(180deg, rgba(9, 13, 22, 0.92) 0%, rgba(9, 13, 22, 0.65) 80%, transparent 100%);
+    pointer-events: none;
+  }
+
+  .top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    pointer-events: auto;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .brand-logo {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #f59e0b, #ea580c);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+  }
+
+  .brand-title {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    line-height: 1.1;
+  }
+
+  .brand-sub {
+    font-size: 10px;
+    color: var(--accent);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  .hud-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .icon-btn {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    color: var(--text-main);
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    backdrop-filter: blur(8px);
+    transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .icon-btn:active {
+    transform: scale(0.94);
+  }
+
+  .icon-btn.active {
+    border-color: var(--accent);
+    background: rgba(245, 158, 11, 0.18);
+    color: #fde68a;
+  }
+
+  /* Player Strip */
+  .players-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(74px, 1fr));
+    gap: 6px;
+    pointer-events: auto;
+  }
+
+  .player-card {
+    background: var(--panel-bg);
+    border: 1.5px solid var(--panel-border);
+    border-radius: 11px;
+    padding: 6px 8px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    position: relative;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(8px);
+  }
+
+  .player-card.active-turn {
+    border-color: var(--accent);
+    box-shadow: 0 0 14px var(--accent-glow);
+    transform: translateY(-1px);
+    background: rgba(30, 41, 59, 0.95);
+  }
+
+  .player-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 8px currentColor;
+    border: 2px solid rgba(255, 255, 255, 0.8);
+  }
+
+  .player-info {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .player-name {
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .player-tile {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  .player-tile strong {
+    color: #fff;
+    font-size: 12px;
+  }
+
+  .player-badges {
+    display: flex;
+    gap: 2px;
+    font-size: 11px;
+  }
+
+  /* Floating Event Banner */
+  #event-banner {
+    align-self: center;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #f8fafc;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    text-align: center;
+    max-width: 94%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Camera Helper Pill */
+  .cam-bar {
+    position: absolute;
+    right: 10px;
+    top: 118px;
+    z-index: 9;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .cam-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    color: var(--text-main);
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  }
+
+  .cam-btn:active {
+    transform: scale(0.92);
+  }
+
+  /* Bottom Controls Dock */
+  .bottom-dock {
+    position: relative;
+    z-index: 10;
+    padding: 8px 12px max(12px, env(safe-area-inset-bottom));
+    background: linear-gradient(0deg, rgba(9, 13, 22, 0.96) 0%, rgba(9, 13, 22, 0.82) 78%, transparent 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  .dock-inner {
+    max-width: 560px;
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: auto;
+  }
+
+  /* Power-up Inventory Bar */
+  .powerup-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 6px 10px;
+    backdrop-filter: blur(10px);
+  }
+
+  .powerup-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .powerup-label span.active-buff {
+    color: #fde047;
+    font-size: 10px;
+  }
+
+  .powerup-slots {
+    display: flex;
+    gap: 6px;
+    flex: 1;
+    justify-content: flex-end;
+  }
+
+  .pu-slot {
+    flex: 1;
+    max-width: 165px;
+    min-height: 40px;
+    border-radius: 10px;
+    border: 1px dashed rgba(148, 163, 184, 0.35);
+    background: rgba(15, 23, 42, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 4px 8px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: default;
+    transition: all 0.18s ease;
+  }
+
+  .pu-slot.filled {
+    border-style: solid;
+    border-color: rgba(245, 158, 11, 0.6);
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(234, 88, 12, 0.12));
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(245, 158, 11, 0.2);
+  }
+
+  .pu-slot.filled:hover, .pu-slot.filled:active {
+    transform: translateY(-1px);
+    border-color: #fbbf24;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.32), rgba(234, 88, 12, 0.25));
+  }
+
+  .pu-slot.armed {
+    border-color: #38bdf8;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.3), rgba(14, 165, 233, 0.2));
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.45);
+  }
+
+  .pu-icon {
+    font-size: 16px;
+  }
+
+  .pu-text {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    line-height: 1.15;
+  }
+
+  .pu-name {
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .pu-desc {
+    font-size: 9px;
+    color: #cbd5e1;
+  }
+
+  /* Roll Control Row */
+  .roll-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .dice-box {
+    width: 68px;
+    height: 68px;
+    border-radius: 16px;
+    background: radial-gradient(circle at 30% 30%, #1e293b, #0f172a);
+    border: 1.5px solid rgba(255, 255, 255, 0.2);
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.6), 0 6px 16px rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  #diceCanvas {
+    width: 64px;
+    height: 64px;
+    display: block;
+  }
+
+  .roll-btn {
+    flex: 1;
+    height: 64px;
+    border-radius: 16px;
+    border: none;
+    background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+    color: #fff;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 8px 22px rgba(234, 88, 12, 0.45), inset 0 2px 2px rgba(255, 255, 255, 0.35);
+    display: flex;
+     flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    transition: transform 0.12s ease, filter 0.15s ease, opacity 0.2s ease;
+  }
+
+  .roll-btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  .roll-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    filter: grayscale(0.25);
+  }
+
+  .roll-btn-sub {
+    font-size: 10px;
+    font-weight: 600;
+    opacity: 0.9;
+    letter-spacing: 0.4px;
+  }
+
+  /* Loaded Die Picker Overlay */
+  #loaded-die-picker {
+    display: none;
+    background: var(--panel-bg);
+    border: 1.5px solid #38bdf8;
+    border-radius: 14px;
+    padding: 8px 10px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.35);
+  }
+
+  #loaded-die-picker.visible {
+    display: flex;
+  }
+
+  .die-pick-btn {
+    flex: 1;
+    height: 38px;
+    border-radius: 9px;
+    border: 1px solid rgba(56, 189, 248, 0.5);
+    background: rgba(15, 23, 42, 0.9);
+    color: #fff;
+    font-weight: 800;
+    font-size: 15px;
+    cursor: pointer;
+  }
+
+  .die-pick-btn:hover, .die-pick-btn:active {
+    background: #0284c7;
+  }
+
+  /* Modals */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(5, 8, 15, 0.78);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+
+  .modal-backdrop.open {
+    display: flex;
+  }
+
+  .modal-card {
+    background: #0f172a;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 20px;
+    max-width: 440px;
+    width: 100%;
+    max-height: 88vh;
+    overflow-y: auto;
+    padding: 20px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .modal-title {
+    font-size: 19px;
+    font-weight: 800;
+    color: #fff;
+  }
+
+  .close-btn {
+    background: rgba(255,255,255,0.08);
+    border: none;
+    color: #cbd5e1;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+
+  .option-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .option-grid.three-col {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .opt-btn {
+    padding: 10px 8px;
+    border-radius: 10px;
+    border: 1.5px solid rgba(148, 163, 184, 0.25);
+    background: rgba(30, 41, 59, 0.6);
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s ease;
+  }
+
+  .opt-btn.selected {
+    border-color: var(--accent);
+    background: rgba(245, 158, 11, 0.2);
+    color: #fde68a;
+  }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: rgba(30, 41, 59, 0.5);
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .primary-btn {
+    width: 100%;
+    padding: 13px;
+    border-radius: 12px;
+    border: none;
+    background: linear-gradient(135deg, #f59e0b, #ea580c);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(234, 88, 12, 0.4);
+  }
+
+  .guide-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 12.5px;
+    color: #cbd5e1;
+    line-height: 1.45;
+  }
+
+  .guide-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: rgba(30, 41, 59, 0.55);
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+  }
+
+  .guide-item-icon {
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .legend-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  .legend-pill {
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- 3D Board Canvas -->
+  <div id="canvas-container">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <!-- Top HUD -->
+  <header class="top-hud">
+    <div class="top-row">
+      <div class="brand">
+        <div class="brand-logo">🎲</div>
+        <div>
+          <div class="brand-title">Snakes &amp; Ladders 3D</div>
+          <div class="brand-sub" id="mode-subtitle">Offline Power-Up Edition</div>
+        </div>
+      </div>
+      <div class="hud-actions">
+        <button class="icon-btn" id="btn-sound" title="Toggle Sound">🔊</button>
+        <button class="icon-btn" id="btn-guide" title="Power-Up Guide">⚡ Guide</button>
+        <button class="icon-btn" id="btn-newgame" title="Game Setup">⚙️ Setup</button>
+      </div>
+    </div>
+
+    <!-- Players Strip -->
+    <div class="players-strip" id="players-strip"></div>
+
+    <!-- Live Status Banner -->
+    <div id="event-banner">Tap ROLL DICE to begin your 3D climb to Tile 100!</div>
+  </header>
+
+  <!-- Floating Camera Controls -->
+  <div class="cam-bar">
+    <button class="cam-btn" id="btn-cam-view" title="Toggle 3D / Top-Down View">🎥</button>
+    <button class="cam-btn" id="btn-cam-zoom-in" title="Zoom In">➕</button>
+    <button class="cam-btn" id="btn-cam-zoom-out" title="Zoom Out">➖</button>
+    <button class="cam-btn" id="btn-cam-reset" title="Reset Camera">🧭</button>
+  </div>
+
+  <!-- Bottom Controls Dock -->
+  <footer class="bottom-dock">
+    <div class="dock-inner">
+      <!-- Loaded Die Selector -->
+      <div id="loaded-die-picker">
+        <span style="font-size:12px;font-weight:800;color:#38bdf8;">🎯 Pick Exact Roll:</span>
+        <button class="die-pick-btn" data-val="1">1</button>
+        <button class="die-pick-btn" data-val="2">2</button>
+        <button class="die-pick-btn" data-val="3">3</button>
+        <button class="die-pick-btn" data-val="4">4</button>
+        <button class="die-pick-btn" data-val="5">5</button>
+        <button class="die-pick-btn" data-val="6">6</button>
+      </div>
+
+      <!-- Power-Up Inventory -->
+      <div class="powerup-bar">
+        <div class="powerup-label">
+          <span>Power-Ups</span>
+          <span class="active-buff" id="active-buff-text">Land on ⭐ orbs</span>
+        </div>
+        <div class="powerup-slots" id="powerup-slots">
+          <button class="pu-slot" id="pu-slot-0">Empty Slot</button>
+          <button class="pu-slot" id="pu-slot-1">Empty Slot</button>
+        </div>
+      </div>
+
+      <!-- 3D Dice & Roll Button -->
+      <div class="roll-row">
+        <div class="dice-box">
+          <canvas id="diceCanvas" width="128" height="128"></canvas>
+        </div>
+        <button class="roll-btn" id="btn-roll">
+          <span id="roll-btn-main">🎲 ROLL 3D DICE</span>
+          <span class="roll-btn-sub" id="roll-btn-sub">Your Turn • Swipe board to rotate 3D camera</span>
+        </button>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- Setup / New Game Modal -->
+<div class="modal-backdrop" id="modal-setup">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="modal-title">⚙️ Game Setup</div>
+      <button class="close-btn" id="close-setup">✕</button>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">Game Mode (100% Offline)</div>
+      <div class="option-grid" id="mode-options">
+        <button class="opt-btn selected" data-mode="1p_1bot">🤖 1P vs 1 Smart Bot</button>
+        <button class="opt-btn" data-mode="1p_3bot">🤖 1P vs 3 Smart Bots</button>
+        <button class="opt-btn" data-mode="2p_local">👥 2P Pass &amp; Play</button>
+        <button class="opt-btn" data-mode="4p_local">👨‍👩‍👧‍👦 4P Pass &amp; Play</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">3D Board Theme</div>
+      <div class="option-grid three-col" id="theme-options">
+        <button class="opt-btn selected" data-theme="royal">👑 Royal Gold</button>
+        <button class="opt-btn" data-theme="jungle">🌴 Jungle Temple</button>
+        <button class="opt-btn" data-theme="cyber">⚡ Cyber Neon</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">House Rules</div>
+      <label class="toggle-row">
+        <span>Require Exact Roll for Tile 100</span>
+        <input type="checkbox" id="chk-exact100" checked style="width:18px;height:18px;accent-color:#f59e0b;" />
+      </label>
+      <label class="toggle-row">
+        <span>Bonus Turn on Rolling a 6</span>
+        <input type="checkbox" id="chk-bonus6" checked style="width:18px;height:18px;accent-color:#f59e0b;" />
+      </label>
+    </div>
+
+    <button class="primary-btn" id="btn-start-match">🚀 Start New 3D Match</button>
+  </div>
+</div>
+
+<!-- Power-Up & Rules Guide Modal -->
+<div class="modal-backdrop" id="modal-guide">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="modal-title">⚡ Power-Ups &amp; 3D Controls</div>
+      <button class="close-btn" id="close-guide">✕</button>
+    </div>
+    <div class="guide-list">
+      <div class="guide-item">
+        <div class="guide-item-icon">🛡️</div>
+        <div><strong>Venom Shield:</strong> Automatically blocks the next snake bite! Activated automatically when collected or tapped, surrounding your 3D token with a protective aura.</div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-item-icon">⚡</div>
+        <div><strong>Nitro Boost (2×):</strong> Doubles your next dice roll (move up to 12 tiles in a single roll). Tap before rolling to arm.</div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-item-icon">🎯</div>
+        <div><strong>Loaded Die:</strong> Lets you choose your exact dice roll (1–6) to hit a crucial ladder or land squarely on Tile 100!</div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-item-icon">🚀</div>
+        <div><strong>Spring Boots (+4):</strong> Immediately vaults your pawn +4 tiles forward before your regular roll!</div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-item-icon">🔄</div>
+        <div><strong>Position Swap:</strong> Instantly teleports and swaps your board position with the leading player on the board.</div>
+      </div>
+    </div>
+    <div class="legend-pills">
+      <span class="legend-pill">🪜 7 Ladders (Climb Up)</span>
+      <span class="legend-pill">🐍 8 Snakes (Slide Down)</span>
+      <span class="legend-pill">⭐ 12 Mystery Orb Tiles</span>
+      <span class="legend-pill">👆 Drag Board to Orbit 3D Camera</span>
+    </div>
+    <button class="primary-btn" id="close-guide-bottom">Got It, Let's Play!</button>
+  </div>
+</div>
+
+<!-- Victory Modal -->
+<div class="modal-backdrop" id="modal-win">
+  <div class="modal-card" style="text-align:center;">
+    <div style="font-size:52px;line-height:1;">🏆</div>
+    <div class="modal-title" id="win-title" style="font-size:24px;">Player 1 Wins!</div>
+    <p id="win-stats" style="font-size:13px;color:#cbd5e1;line-height:1.5;"></p>
+    <button class="primary-btn" id="btn-play-again">🔄 Play Another Match</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // =========================================================================
+  // 1. BOARD CONFIGURATION: LADDERS, SNAKES, MYSTERY POWER-UP ORBS & THEMES
+  // =========================================================================
+  const LADDERS = [
+    { from: 4, to: 25 },
+    { from: 13, to: 46 },
+    { from: 33, to: 49 },
+    { from: 42, to: 63 },
+    { from: 50, to: 69 },
+    { from: 62, to: 81 },
+    { from: 74, to: 92 }
+  ];
+
+  const SNAKES = [
+    { from: 27, to: 5, color: "#ef4444", belly: "#fca5a5" },
+    { from: 40, to: 3, color: "#a855f7", belly: "#d8b4fe" },
+    { from: 43, to: 18, color: "#10b981", belly: "#6ee7b7" },
+    { from: 54, to: 31, color: "#f97316", belly: "#fdba74" },
+    { from: 66, to: 45, color: "#ec4899", belly: "#f9a8d4" },
+    { from: 76, to: 58, color: "#eab308", belly: "#fde047" },
+    { from: 89, to: 53, color: "#06b6d4", belly: "#67e8f9" },
+    { from: 99, to: 41, color: "#dc2626", belly: "#fecaca" }
+  ];
+
+  const ORB_TILES = [7, 16, 22, 30, 37, 48, 57, 64, 71, 80, 86, 95];
+
+  const POWERUPS = {
+    shield: {
+      id: "shield",
+      name: "Venom Shield",
+      icon: "🛡️",
+      desc: "Blocks next snake",
+      color: "#38bdf8"
+    },
+    double: {
+      id: "double",
+      name: "Nitro 2× Roll",
+      icon: "⚡",
+      desc: "Doubles next roll",
+      color: "#facc15"
+    },
+    loaded: {
+      id: "loaded",
+      name: "Loaded Die",
+      icon: "🎯",
+      desc: "Pick exact 1–6 roll",
+      color: "#a855f7"
+    },
+    spring: {
+      id: "spring",
+      name: "Spring +4",
+      icon: "🚀",
+      desc: "Leap +4 spaces now",
+      color: "#22c55e"
+    },
+    swap: {
+      id: "swap",
+      name: "Leader Swap",
+      icon: "🔄",
+      desc: "Swap with leader",
+      color: "#f97316"
+    }
+  };
+  const POWERUP_KEYS = Object.keys(POWERUPS);
+
+  const THEMES = {
+    royal: {
+      boardBase: "#451a03",
+      boardRim: "#78350f",
+      tileEvenTop: "#fef3c7",
+      tileEvenSide: "#d97706",
+      tileOddTop: "#fde68a",
+      tileOddSide: "#b45309",
+      tileAccentTop: "#fed7aa",
+      tileAccentSide: "#9a3412",
+      textDark: "#451a03",
+      ladderRail: "#b45309",
+      ladderRung: "#fcd34d"
+    },
+    jungle: {
+      boardBase: "#064e3b",
+      boardRim: "#047857",
+      tileEvenTop: "#d1fae5",
+      tileEvenSide: "#059669",
+      tileOddTop: "#a7f3d0",
+      tileOddSide: "#047857",
+      tileAccentTop: "#fef08a",
+      tileAccentSide: "#ca8a04",
+      textDark: "#064e3b",
+      ladderRail: "#713f12",
+      ladderRung: "#a3e635"
+    },
+    cyber: {
+      boardBase: "#090d16",
+      boardRim: "#1e293b",
+      tileEvenTop: "#1e293b",
+      tileEvenSide: "#0f172a",
+      tileOddTop: "#334155",
+      tileOddSide: "#1e293b",
+      tileAccentTop: "#312e81",
+      tileAccentSide: "#1e1b4b",
+      textDark: "#e2e8f0",
+      ladderRail: "#06b6d4",
+      ladderRung: "#38bdf8"
+    }
+  };
+
+  const PLAYER_PRESETS = [
+    { name: "You", color: "#38bdf8", dark: "#0284c7", isBot: false },
+    { name: "Bot Rex", color: "#f43f5e", dark: "#be123c", isBot: true },
+    { name: "Bot Nova", color: "#a855f7", dark: "#7e22ce", isBot: true },
+    { name: "Bot Bolt", color: "#22c55e", dark: "#15803d", isBot: true }
+  ];
+
+  // =========================================================================
+  // 2. PROCEDURAL WEB AUDIO SYNTHESIZER (100% OFFLINE SOUND EFFECTS)
+  // =========================================================================
+  class SoundEngine {
+    constructor() {
+      this.ctx = null;
+      this.enabled = true;
+    }
+    init() {
+      if (!this.ctx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) this.ctx = new AudioCtx();
+      }
+      if (this.ctx && this.ctx.state === "suspended") {
+        this.ctx.resume();
+      }
+    }
+    playTone(freq, type, duration, delay = 0, gainVal = 0.14) {
+      if (!this.enabled) return;
+      try {
+        this.init();
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime + delay;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(gainVal, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + duration);
+      } catch (e) {}
+    }
+    diceRoll() {
+      for (let i = 0; i < 6; i++) {
+        this.playTone(180 + Math.random() * 240, "triangle", 0.05, i * 0.055, 0.12);
+      }
+    }
+    hop() {
+      this.playTone(420, "sine", 0.09, 0, 0.12);
+    }
+    ladder() {
+      const notes = [330, 392, 494, 587, 659, 784];
+      notes.forEach((n, idx) => this.playTone(n, "triangle", 0.14, idx * 0.07, 0.15));
+    }
+    snake() {
+      const notes = [480, 410, 350, 290, 220, 160];
+      notes.forEach((n, idx) => this.playTone(n, "sawtooth", 0.13, idx * 0.07, 0.11));
+    }
+    powerup() {
+      const notes = [523, 659, 784, 1046];
+      notes.forEach((n, idx) => this.playTone(n, "sine", 0.14, idx * 0.06, 0.15));
+    }
+    shieldBlock() {
+      this.playTone(600, "square", 0.12, 0, 0.14);
+      this.playTone(900, "sine", 0.25, 0.08, 0.18);
+    }
+    win() {
+      const melody = [523, 659, 784, 1046, 784, 1046];
+      melody.forEach((n, idx) => this.playTone(n, "triangle", 0.22, idx * 0.11, 0.18));
+    }
+  }
+
+  const sfx = new SoundEngine();
+
+  // =========================================================================
+  // 3. GAME STATE & PERSISTENCE
+  // =========================================================================
+  const STORAGE_KEY = "snakes_ladders_3d_save_v1";
+
+  const state = {
+    mode: "1p_1bot",
+    theme: "royal",
+    exact100: true,
+    bonus6: true,
+    players: [],
+    turnIndex: 0,
+    busy: false,
+    gameOver: false,
+    diceValue: 6,
+    armedPowerup: null, // 'double' | 'loaded'
+    particles: [],
+    floatingTexts: [],
+    time: 0,
+    camera: {
+      yaw: 0.0,         // horizontal orbit radians
+      pitch: 0.68,      // 0.68 = 3D perspective tilt, 1.48 = top-down
+      zoom: 1.0,
+      targetYaw: 0.0,
+      targetPitch: 0.68,
+      targetZoom: 1.0,
+      topDown: false
+    },
+    dice3D: {
+      rx: 0.5,
+      ry: 0.6,
+      rz: 0.2,
+      spinning: false,
+      spinTime: 0,
+      targetValue: 6
+    }
+  };
+
+  function getTileCoords(tileNum) {
+    // Tile 1..100 -> 3D world coordinates (x, z) centered around (0, 0)
+    // Board spans -4.5 to +4.5 in X and Z (unit = 1 tile width)
+    const idx = Math.max(0, Math.min(99, tileNum - 1));
+    const row = Math.floor(idx / 10); // 0 (bottom) to 9 (top)
+    const colInRow = idx % 10;
+    const col = (row % 2 === 0) ? colInRow : (9 - colInRow);
+    const x = col - 4.5;
+    const z = 4.5 - row; // row 0 is at front (+4.5), row 9 at back (-4.5)
+    return { x, y: 0, z, row, col };
+  }
+
+  function createPlayersForMode(mode) {
+    if (mode === "1p_1bot") {
+      return [
+        makePlayer(0, "You", "#38bdf8", "#0284c7", false),
+        makePlayer(1, "Bot Rex", "#f43f5e", "#be123c", true)
+      ];
+    } else if (mode === "1p_3bot") {
+      return [
+        makePlayer(0, "You", "#38bdf8", "#0284c7", false),
+        makePlayer(1, "Bot Rex", "#f43f5e", "#be123c", true),
+        makePlayer(2, "Bot Nova", "#a855f7", "#7e22ce", true),
+        makePlayer(3, "Bot Bolt", "#22c55e", "#15803d", true)
+      ];
+    } else if (mode === "2p_local") {
+      return [
+        makePlayer(0, "Player 1", "#38bdf8", "#0284c7", false),
+        makePlayer(1, "Player 2", "#f43f5e", "#be123c", false)
+      ];
+    } else {
+      return [
+        makePlayer(0, "Player 1", "#38bdf8", "#0284c7", false),
+        makePlayer(1, "Player 2", "#f43f5e", "#be123c", false),
+        makePlayer(2, "Player 3", "#a855f7", "#7e22ce", false),
+        makePlayer(3, "Player 4", "#22c55e", "#15803d", false)
+      ];
+    }
+  }
+
+  function makePlayer(id, name, color, dark, isBot) {
+    const startPos = getTileCoords(1);
+    return {
+      id,
+      name,
+      color,
+      dark,
+      isBot,
+      tile: 1,
+      wx: startPos.x,
+      wy: 0,
+      wz: startPos.z,
+      shield: false,
+      inventory: ["Loaded".toLowerCase() === "loaded" ? (id === 0 ? "double" : "shield") : "shield"], // Start with 1 starter power-up!
+      rolls: 0,
+      laddersClimbed: 0,
+      snakesBitten: 0
+    };
+  }
+
+  function saveGameState() {
+    try {
+      const payload = {
+        mode: state.mode,
+        theme: state.theme,
+        exact100: state.exact100,
+        bonus6: state.bonus6,
+        turnIndex: state.turnIndex,
+        gameOver: state.gameOver,
+        diceValue: state.diceValue,
+        players: state.players.map(p => ({
+          id: p.id,
+          name: p.name,
+          color: p.color,
+          dark: p.dark,
+          isBot: p.isBot,
+          tile: p.tile,
+          shield: p.shield,
+          inventory: p.inventory,
+          rolls: p.rolls,
+          laddersClimbed: p.laddersClimbed,
+          snakesBitten: p.snakesBitten
+        }))
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch (e) {}
+  }
+
+  function loadGameState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      if (!data || !Array.isArray(data.players) || data.players.length < 2 || data.gameOver) {
+        return false;
+      }
+      state.mode = data.mode || "1p_1bot";
+      state.theme = THEMES[data.theme] ? data.theme : "royal";
+      state.exact100 = Boolean(data.exact100);
+      state.bonus6 = Boolean(data.bonus6);
+      state.turnIndex = data.turnIndex % data.players.length;
+      state.diceValue = data.diceValue || 6;
+      state.players = data.players.map(p => {
+        const coords = getTileCoords(p.tile || 1);
+        return {
+          ...p,
+          wx: coords.x,
+          wy: 0,
+          wz: coords.z
+        };
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function startNewGame() {
+    state.players = createPlayersForMode(state.mode);
+    state.turnIndex = 0;
+    state.busy = false;
+    state.gameOver = false;
+    state.armedPowerup = null;
+    state.particles = [];
+    state.floatingTexts = [];
+    setDiceFaceOrientation(6);
+    updateHUD();
+    const cpName = currentPlayer().name; setBanner(`New 3D Match! ${cpName === 'You' ? 'Your' : cpName + "'s"} turn to roll.`);
+    saveGameState();
+    checkBotTurn();
+  }
+
+  function currentPlayer() {
+    return state.players[state.turnIndex];
+  }
+
+  // =========================================================================
+  // 4. HUD & UI CONTROLS
+  // =========================================================================
+  const playersStripEl = document.getElementById("players-strip");
+  const bannerEl = document.getElementById("event-banner");
+  const rollBtn = document.getElementById("btn-roll");
+  const rollBtnMain = document.getElementById("roll-btn-main");
+  const rollBtnSub = document.getElementById("roll-btn-sub");
+  const slot0El = document.getElementById("pu-slot-0");
+  const slot1El = document.getElementById("pu-slot-1");
+  const activeBuffTextEl = document.getElementById("active-buff-text");
+  const loadedPickerEl = document.getElementById("loaded-die-picker");
+
+  function setBanner(msg, color = "#f8fafc") {
+    bannerEl.textContent = msg;
+    bannerEl.style.borderColor = color;
+  }
+
+  function addFloatingText(worldX, worldY, worldZ, text, color = "#fde047") {
+    state.floatingTexts.push({
+      x: worldX,
+      y: worldY + 0.5,
+      z: worldZ,
+      text,
+      color,
+      life: 1.0
+    });
+  }
+
+  function spawnParticles(worldX, worldY, worldZ, color, count = 22) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.8 + Math.random() * 2.2;
+      state.particles.push({
+        x: worldX,
+        y: worldY + 0.25,
+        z: worldZ,
+        vx: Math.cos(angle) * speed,
+        vy: 1.8 + Math.random() * 2.6,
+        vz: Math.sin(angle) * speed,
+        color,
+        size: 3 + Math.random() * 4,
+        life: 1.0
+      });
+    }
+  }
+
+  function updateHUD() {
+    // Render Player Cards
+    playersStripEl.innerHTML = "";
+    state.players.forEach((p, idx) => {
+      const card = document.createElement("div");
+      card.className = "player-card" + (idx === state.turnIndex ? " active-turn" : "");
+      const shieldBadge = p.shield ? "🛡️" : "";
+      const invIcons = p.inventory.map(k => POWERUPS[k]?.icon || "").join("");
+      card.innerHTML = `
+        <div class="player-dot" style="background:${p.color};color:${p.color};"></div>
+        <div class="player-info">
+          <div class="player-name">${p.name} <span class="player-badges">${shieldBadge}${invIcons}</span></div>
+          <div class="player-tile">Tile <strong>${p.tile}</strong>/100</div>
+        </div>
+      `;
+      playersStripEl.appendChild(card);
+    });
+
+    const p = currentPlayer();
+    if (!p) return;
+
+    // Update Power-Up Inventory Slots for active player
+    const slots = [slot0El, slot1El];
+    slots.forEach((slotEl, sIdx) => {
+      const puKey = p.inventory[sIdx];
+      slotEl.className = "pu-slot";
+      slotEl.onclick = null;
+      if (puKey && POWERUPS[puKey]) {
+        const pu = POWERUPS[puKey];
+        const isArmed = state.armedPowerup && state.armedPowerup.slotIndex === sIdx;
+        slotEl.classList.add("filled");
+        if (isArmed) slotEl.classList.add("armed");
+        slotEl.innerHTML = `
+          <span class="pu-icon">${pu.icon}</span>
+          <div class="pu-text">
+            <span class="pu-name">${pu.name}</span>
+            <span class="pu-desc">${isArmed ? "ARMED (Tap to cancel)" : pu.desc}</span>
+          </div>
+        `;
+        if (!p.isBot && !state.busy && !state.gameOver) {
+          slotEl.onclick = () => onPowerupSlotTap(sIdx);
+        }
+      } else {
+        slotEl.innerHTML = `<span>Empty Slot</span>`;
+      }
+    });
+
+    if (state.armedPowerup) {
+      const pu = POWERUPS[state.armedPowerup.key];
+      activeBuffTextEl.textContent = `${pu.icon} ${pu.name} Armed!`;
+    } else if (p.shield) {
+      activeBuffTextEl.textContent = "🛡️ Venom Shield Active";
+    } else {
+      activeBuffTextEl.textContent = "Land on ⭐ orbs for buffs";
+    }
+
+    // Loaded Die Picker visibility
+    if (state.armedPowerup && state.armedPowerup.key === "loaded" && !p.isBot && !state.busy) {
+      loadedPickerEl.classList.add("visible");
+    } else {
+      loadedPickerEl.classList.remove("visible");
+    }
+
+    // Roll Button state
+    if (state.gameOver) {
+      rollBtn.disabled = false;
+      rollBtnMain.textContent = "🔄 PLAY AGAIN";
+      rollBtnSub.textContent = "Tap to start a new 3D match";
+    } else if (p.isBot) {
+      rollBtn.disabled = true;
+      rollBtnMain.textContent = `🤖 ${p.name.toUpperCase()} THINKING...`;
+      rollBtnSub.textContent = "AI Opponent Turn";
+    } else if (state.busy) {
+      rollBtn.disabled = true;
+      rollBtnMain.textContent = "🎲 MOVING...";
+      rollBtnSub.textContent = `${p.name} in action`;
+    } else {
+      rollBtn.disabled = false;
+      rollBtnMain.textContent = `🎲 ROLL DICE (${p.name})`;
+      rollBtnSub.textContent = state.armedPowerup
+        ? `⚡ ${POWERUPS[state.armedPowerup.key].name} ready!`
+        : "Tap to roll • Drag board to orbit 3D view";
+    }
+  }
+
+  // =========================================================================
+  // 5. POWER-UP ACTIVATION & TURN FLOW
+  // =========================================================================
+  async function onPowerupSlotTap(slotIndex) {
+    const p = currentPlayer();
+    if (!p || p.isBot || state.busy || state.gameOver) return;
+    const key = p.inventory[slotIndex];
+    if (!key) return;
+
+    // Toggle off if already armed
+    if (state.armedPowerup && state.armedPowerup.slotIndex === slotIndex) {
+      state.armedPowerup = null;
+      updateHUD();
+      return;
+    }
+
+    if (key === "shield") {
+      if (p.shield) {
+        setBanner("🛡️ You already have an active Venom Shield!", "#38bdf8");
+        return;
+      }
+      p.inventory.splice(slotIndex, 1);
+      p.shield = true;
+      sfx.powerup();
+      spawnParticles(p.wx, p.wy, p.wz, "#38bdf8", 26);
+      addFloatingText(p.wx, p.wy, p.wz, "🛡️ SHIELD ON!", "#38bdf8");
+      setBanner(`🛡️ ${p.name} activated Venom Shield! Next snake bite is blocked.`, "#38bdf8");
+      updateHUD();
+      saveGameState();
+      return;
+    }
+
+    if (key === "spring") {
+      // Immediate +4 tile leap!
+      state.busy = true;
+      p.inventory.splice(slotIndex, 1);
+      state.armedPowerup = null;
+      sfx.powerup();
+      const target = Math.min(100, p.tile + 4);
+      setBanner(`🚀 ${p.name} used Spring Boots to leap +4 spaces to Tile ${target}!`, "#22c55e");
+      addFloatingText(p.wx, p.wy, p.wz, "🚀 +4 LEAP!", "#22c55e");
+      updateHUD();
+      await animatePlayerStepByStep(p, target);
+      await resolveTileEffects(p);
+      if (!state.gameOver) {
+        state.busy = false;
+        updateHUD();
+        saveGameState();
+      }
+      return;
+    }
+
+    if (key === "swap") {
+      // Find leader ahead of current player
+      let leader = null;
+      for (const other of state.players) {
+        if (other.id !== p.id && other.tile > p.tile) {
+          if (!leader || other.tile > leader.tile) leader = other;
+        }
+      }
+      if (!leader) {
+        setBanner("🔄 You are already in the lead! Save Leader Swap for when someone passes you.", "#f97316");
+        return;
+      }
+      state.busy = true;
+      p.inventory.splice(slotIndex, 1);
+      state.armedPowerup = null;
+      sfx.powerup();
+      const myOldTile = p.tile;
+      const leaderTile = leader.tile;
+      setBanner(`🔄 ${p.name} swapped positions with ${leader.name} (Tile ${myOldTile} ↔ Tile ${leaderTile})!`, "#f97316");
+      await animateSwapPositions(p, leader);
+      state.busy = false;
+      updateHUD();
+      saveGameState();
+      return;
+    }
+
+    if (key === "double" || key === "loaded") {
+      state.armedPowerup = { slotIndex, key };
+      sfx.hop();
+      setBanner(`${POWERUPS[key].icon} ${POWERUPS[key].name} armed for your roll!`, POWERUPS[key].color);
+      updateHUD();
+    }
+  }
+
+  // Loaded Die number button handler
+  document.querySelectorAll(".die-pick-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const val = parseInt(btn.getAttribute("data-val"), 10);
+      if (state.armedPowerup && state.armedPowerup.key === "loaded" && !state.busy) {
+        executeTurnRoll(val);
+      }
+    });
+  });
+
+  rollBtn.addEventListener("click", () => {
+    if (state.gameOver) {
+      document.getElementById("modal-win").classList.remove("open");
+      startNewGame();
+      return;
+    }
+    const p = currentPlayer();
+    if (!p || p.isBot || state.busy) return;
+    executeTurnRoll(null);
+  });
+
+  async function executeTurnRoll(forcedValue = null) {
+    const p = currentPlayer();
+    if (!p || state.busy || state.gameOver) return;
+    state.busy = true;
+    loadedPickerEl.classList.remove("visible");
+
+    let baseRoll = forcedValue || (1 + Math.floor(Math.random() * 6));
+    let multiplier = 1;
+
+    if (state.armedPowerup) {
+      const { slotIndex, key } = state.armedPowerup;
+      if (key === "double") {
+        multiplier = 2;
+        p.inventory.splice(slotIndex, 1);
+      } else if (key === "loaded") {
+        if (!forcedValue) baseRoll = chooseSmartRollForPlayer(p);
+        p.inventory.splice(slotIndex, 1);
+      }
+      state.armedPowerup = null;
+    }
+
+    p.rolls += 1;
+    updateHUD();
+
+    // Animate 3D Dice tumble
+    sfx.diceRoll();
+    await animate3DDiceRoll(baseRoll);
+
+    const totalMove = baseRoll * multiplier;
+    if (multiplier === 2) {
+      setBanner(`⚡ ${p.name} rolled ${baseRoll} × 2 (Nitro Boost) = ${totalMove} spaces!`, "#facc15");
+      addFloatingText(p.wx, p.wy, p.wz, `⚡ ${baseRoll}×2 = ${totalMove}!`, "#facc15");
+    } else {
+      setBanner(`🎲 ${p.name} rolled a ${baseRoll}!`, p.color);
+    }
+
+    const targetTile = p.tile + totalMove;
+    if (targetTile > 100) {
+      if (state.exact100) {
+        setBanner(`🎯 ${p.name} needs an exact roll to reach 100 (rolled ${totalMove} from ${p.tile}).`, "#f87171");
+        await sleep(800);
+      } else {
+        await animatePlayerStepByStep(p, 100);
+        await resolveTileEffects(p);
+      }
+    } else {
+      await animatePlayerStepByStep(p, targetTile);
+      await resolveTileEffects(p);
+    }
+
+    if (state.gameOver) return;
+
+    // Check bonus turn on rolling 6
+    if (state.bonus6 && baseRoll === 6) {
+      setBanner(`🎉 ${p.name} rolled a 6 and earns a BONUS TURN!`, "#fde047");
+      addFloatingText(p.wx, p.wy, p.wz, "🎲 BONUS TURN!", "#fde047");
+      state.busy = false;
+      updateHUD();
+      saveGameState();
+      checkBotTurn();
+      return;
+    }
+
+    // Advance to next player's turn
+    state.turnIndex = (state.turnIndex + 1) % state.players.length;
+    state.busy = false;
+    const nextP = currentPlayer();
+    setBanner(`${nextP.name === 'You' ? 'Your' : nextP.name + "'s"} turn!`, nextP.color);
+    updateHUD();
+    saveGameState();
+    checkBotTurn();
+  }
+
+  async function resolveTileEffects(p) {
+    // 1. Check Ladder
+    const ladder = LADDERS.find(l => l.from === p.tile);
+    if (ladder) {
+      p.laddersClimbed += 1;
+      sfx.ladder();
+      setBanner(`🪜 Awesome! ${p.name} climbs the 3D ladder from ${ladder.from} to ${ladder.to}!`, "#22c55e");
+      addFloatingText(p.wx, p.wy, p.wz, `🪜 CLIMB TO ${ladder.to}!`, "#4ade80");
+      spawnParticles(p.wx, p.wy, p.wz, "#4ade80", 28);
+      await animateLinear3DMove(p, ladder.to, 680, 0.75);
+    }
+
+    // 2. Check Snake
+    const snake = SNAKES.find(s => s.from === p.tile);
+    if (snake) {
+      if (p.shield) {
+        p.shield = false;
+        sfx.shieldBlock();
+        setBanner(`🛡️ VENOM SHIELD BLOCKED THE SNAKE AT ${snake.from}! ${p.name} stays safe!`, "#38bdf8");
+        addFloatingText(p.wx, p.wy, p.wz, "🛡️ SNAKE BLOCKED!", "#38bdf8");
+        spawnParticles(p.wx, p.wy, p.wz, "#38bdf8", 32);
+        await sleep(650);
+      } else {
+        p.snakesBitten += 1;
+        sfx.snake();
+        setBanner(`🐍 Oh no! ${p.name} was bitten at ${snake.from} and slides down to ${snake.to}!`, "#ef4444");
+        addFloatingText(p.wx, p.wy, p.wz, `🐍 SLIDE TO ${snake.to}!`, "#f87171");
+        spawnParticles(p.wx, p.wy, p.wz, "#ef4444", 26);
+        await animateSnakeSlide(p, snake, 780);
+      }
+    }
+
+    // 3. Check Mystery Power-Up Orb
+    if (ORB_TILES.includes(p.tile)) {
+      sfx.powerup();
+      const randomKey = POWERUP_KEYS[Math.floor(Math.random() * POWERUP_KEYS.length)];
+      const pu = POWERUPS[randomKey];
+      if (randomKey === "shield" && !p.shield) {
+        p.shield = true;
+        setBanner(`⭐ ${p.name} collected a Mystery Orb: 🛡️ Venom Shield auto-equipped!`, "#38bdf8");
+        addFloatingText(p.wx, p.wy, p.wz, "+🛡️ VENOM SHIELD!", "#38bdf8");
+      } else if (p.inventory.length < 2) {
+        p.inventory.push(randomKey);
+        setBanner(`⭐ ${p.name} collected a Mystery Orb: ${pu.icon} ${pu.name}!`, pu.color);
+        addFloatingText(p.wx, p.wy, p.wz, `+${pu.icon} ${pu.name}!`, pu.color);
+      } else {
+        // Inventory full: replace oldest or grant +2 bonus step
+        p.inventory[0] = randomKey;
+        setBanner(`⭐ ${p.name} swapped for a fresh Power-Up: ${pu.icon} ${pu.name}!`, pu.color);
+        addFloatingText(p.wx, p.wy, p.wz, `${pu.icon} ${pu.name}!`, pu.color);
+      }
+      spawnParticles(p.wx, p.wy, p.wz, pu.color, 26);
+      await sleep(450);
+    }
+
+    // 4. Check Victory (Tile 100)
+    if (p.tile === 100) {
+      state.gameOver = true;
+      state.busy = false;
+      sfx.win();
+      const c100 = getTileCoords(100);
+      spawnParticles(c100.x, 0.5, c100.z, "#facc15", 65);
+      spawnParticles(c100.x, 0.8, c100.z, p.color, 45);
+      setBanner(`🏆 ${p.name} reached Tile 100 and won the 3D Championship!`, "#facc15");
+      updateHUD();
+      saveGameState();
+      showVictoryModal(p);
+    }
+  }
+
+  function showVictoryModal(winner) {
+    document.getElementById("win-title").textContent = `🏆 ${winner.name} Wins!`;
+    document.getElementById("win-stats").innerHTML = `
+      <strong>${winner.name}</strong> conquered Tile 100 in <strong>${winner.rolls}</strong> rolls!<br/>
+      🪜 Ladders Climbed: <strong>${winner.laddersClimbed}</strong> &nbsp;•&nbsp; 🐍 Snakes Survived: <strong>${winner.snakesBitten}</strong>
+    `;
+    document.getElementById("modal-win").classList.add("open");
+  }
+
+  // =========================================================================
+  // 6. SMART OFFLINE AI BOT LOGIC
+  // =========================================================================
+  function chooseSmartRollForPlayer(p) {
+    let bestRoll = 6;
+    let bestOutcome = -1;
+    for (let r = 1; r <= 6; r++) {
+      const dest = p.tile + r;
+      if (dest > 100 && state.exact100) continue;
+      const clamped = Math.min(100, dest);
+      let finalTile = clamped;
+      const lad = LADDERS.find(l => l.from === clamped);
+      if (lad) finalTile = lad.to;
+      const snk = SNAKES.find(s => s.from === clamped);
+      if (snk && !p.shield) finalTile = snk.to;
+      if (finalTile === 100) return r;
+      if (finalTile > bestOutcome) {
+        bestOutcome = finalTile;
+        bestRoll = r;
+      }
+    }
+    return bestRoll;
+  }
+
+  async function checkBotTurn() {
+    const p = currentPlayer();
+    if (!p || !p.isBot || state.busy || state.gameOver) return;
+    state.busy = true;
+    updateHUD();
+    await sleep(650);
+
+    // Bot evaluates its power-up inventory before rolling
+    for (let i = 0; i < p.inventory.length; i++) {
+      const key = p.inventory[i];
+      if (key === "shield" && !p.shield) {
+        p.inventory.splice(i, 1);
+        p.shield = true;
+        sfx.powerup();
+        setBanner(`🤖 ${p.name} activated 🛡️ Venom Shield!`, "#38bdf8");
+        addFloatingText(p.wx, p.wy, p.wz, "🛡️ SHIELD!", "#38bdf8");
+        await sleep(500);
+        break;
+      }
+      if (key === "swap") {
+        let leader = null;
+        for (const other of state.players) {
+          if (other.id !== p.id && other.tile - p.tile >= 15) {
+            if (!leader || other.tile > leader.tile) leader = other;
+          }
+        }
+        if (leader) {
+          p.inventory.splice(i, 1);
+          sfx.powerup();
+          setBanner(`🤖 ${p.name} used 🔄 Leader Swap with ${leader.name}!`, "#f97316");
+          await animateSwapPositions(p, leader);
+          await sleep(400);
+          break;
+        }
+      }
+      if (key === "spring" && p.tile <= 90) {
+        p.inventory.splice(i, 1);
+        sfx.powerup();
+        const target = Math.min(100, p.tile + 4);
+        setBanner(`🤖 ${p.name} used 🚀 Spring Boots (+4) to Tile ${target}!`, "#22c55e");
+        await animatePlayerStepByStep(p, target);
+        await resolveTileEffects(p);
+        if (state.gameOver) return;
+        await sleep(400);
+        break;
+      }
+      if (key === "loaded") {
+        state.armedPowerup = { slotIndex: i, key: "loaded" };
+        break;
+      }
+      if (key === "double" && p.tile <= 86) {
+        state.armedPowerup = { slotIndex: i, key: "double" };
+        break;
+      }
+    }
+
+    state.busy = false;
+    const forced = (state.armedPowerup && state.armedPowerup.key === "loaded")
+      ? chooseSmartRollForPlayer(p)
+      : null;
+    await executeTurnRoll(forced);
+  }
+
+  // =========================================================================
+  // 7. ANIMATION HELPERS (3D HOPPING, LADDERS, SNAKES, DICE TUMBLE)
+  // =========================================================================
+  function sleep(ms) {
+    return new Promise(res => setTimeout(res, ms));
+  }
+
+  function animate3DDiceRoll(finalValue) {
+    return new Promise(resolve => {
+      state.dice3D.spinning = true;
+      state.dice3D.targetValue = finalValue;
+      const duration = 560;
+      const start = performance.now();
+      function tick(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const ease = 1 - Math.pow(1 - t, 3);
+        state.dice3D.rx = (1 - ease) * 14.0 + getTargetDiceAngles(finalValue).rx;
+        state.dice3D.ry = (1 - ease) * 18.0 + getTargetDiceAngles(finalValue).ry;
+        state.dice3D.rz = (1 - ease) * 10.0 + getTargetDiceAngles(finalValue).rz;
+        if (t < 1) {
+          requestAnimationFrame(tick);
+        } else {
+          state.dice3D.spinning = false;
+          state.diceValue = finalValue;
+          setDiceFaceOrientation(finalValue);
+          resolve();
+        }
+      }
+      requestAnimationFrame(tick);
+    });
+  }
+
+  function getTargetDiceAngles(val) {
+    // Orient cube so the face for `val` points toward viewer with a 3D isometric bevel tilt
+    const tiltX = 0.34;
+    const tiltY = -0.36;
+    switch (val) {
+      case 1: return { rx: tiltX, ry: tiltY, rz: 0 };
+      case 2: return { rx: tiltX, ry: -Math.PI / 2 + tiltY, rz: 0 };
+      case 3: return { rx: Math.PI / 2 + tiltX, ry: tiltY, rz: 0 };
+      case 4: return { rx: -Math.PI / 2 + tiltX, ry: tiltY, rz: 0 };
+      case 5: return { rx: tiltX, ry: Math.PI / 2 + tiltY, rz: 0 };
+      case 6: return { rx: Math.PI + tiltX, ry: tiltY, rz: 0 };
+      default: return { rx: tiltX, ry: tiltY, rz: 0 };
+    }
+  }
+
+  function setDiceFaceOrientation(val) {
+    const a = getTargetDiceAngles(val);
+    state.dice3D.rx = a.rx;
+    state.dice3D.ry = a.ry;
+    state.dice3D.rz = a.rz;
+  }
+
+  async function animatePlayerStepByStep(player, destTile) {
+    while (player.tile < destTile) {
+      const nextTile = player.tile + 1;
+      const fromC = getTileCoords(player.tile);
+      const toC = getTileCoords(nextTile);
+      sfx.hop();
+      await new Promise(resolve => {
+        const dur = 165;
+        const start = performance.now();
+        function step(now) {
+          const t = Math.min(1, (now - start) / dur);
+          player.wx = fromC.x + (toC.x - fromC.x) * t;
+          player.wz = fromC.z + (toC.z - fromC.z) * t;
+          player.wy = Math.sin(t * Math.PI) * 0.65;
+          if (t < 1) requestAnimationFrame(step);
+          else {
+            player.tile = nextTile;
+            player.wx = toC.x;
+            player.wz = toC.z;
+            player.wy = 0;
+            resolve();
+          }
+        }
+        requestAnimationFrame(step);
+      });
+      updateHUD();
+    }
+  }
+
+  function animateLinear3DMove(player, destTile, duration = 650, arcHeight = 0.7) {
+    const fromC = getTileCoords(player.tile);
+    const toC = getTileCoords(destTile);
+    return new Promise(resolve => {
+      const start = performance.now();
+      function step(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const smooth = t * t * (3 - 2 * t);
+        player.wx = fromC.x + (toC.x - fromC.x) * smooth;
+        player.wz = fromC.z + (toC.z - fromC.z) * smooth;
+        player.wy = Math.sin(smooth * Math.PI) * arcHeight;
+        if (t < 1) requestAnimationFrame(step);
+        else {
+          player.tile = destTile;
+          player.wx = toC.x;
+          player.wz = toC.z;
+          player.wy = 0;
+          updateHUD();
+          resolve();
+        }
+      }
+      requestAnimationFrame(step);
+    });
+  }
+
+  function getSnakePoint3D(snake, t) {
+    const fromC = getTileCoords(snake.from);
+    const toC = getTileCoords(snake.to);
+    const dx = toC.x - fromC.x;
+    const dz = toC.z - fromC.z;
+    const len = Math.hypot(dx, dz) || 1;
+    const nx = -dz / len;
+    const nz = dx / len;
+    const wave = Math.sin(t * Math.PI * 3) * 0.38 * Math.sin(t * Math.PI);
+    return {
+      x: fromC.x + dx * t + nx * wave,
+      y: 0.14 + Math.sin(t * Math.PI) * 0.08,
+      z: fromC.z + dz * t + nz * wave
+    };
+  }
+
+  function animateSnakeSlide(player, snake, duration = 760) {
+    return new Promise(resolve => {
+      const start = performance.now();
+      function step(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const pt = getSnakePoint3D(snake, t);
+        player.wx = pt.x;
+        player.wy = pt.y;
+        player.wz = pt.z;
+        if (t < 1) requestAnimationFrame(step);
+        else {
+          const toC = getTileCoords(snake.to);
+          player.tile = snake.to;
+          player.wx = toC.x;
+          player.wy = 0;
+          player.wz = toC.z;
+          updateHUD();
+          resolve();
+        }
+      }
+      requestAnimationFrame(step);
+    });
+  }
+
+  function animateSwapPositions(p1, p2, duration = 680) {
+    const c1 = getTileCoords(p1.tile);
+    const c2 = getTileCoords(p2.tile);
+    const t1 = p1.tile;
+    const t2 = p2.tile;
+    return new Promise(resolve => {
+      const start = performance.now();
+      function step(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const s = t * t * (3 - 2 * t);
+        p1.wx = c1.x + (c2.x - c1.x) * s;
+        p1.wz = c1.z + (c2.z - c1.z) * s;
+        p1.wy = Math.sin(s * Math.PI) * 1.1;
+
+        p2.wx = c2.x + (c1.x - c2.x) * s;
+        p2.wz = c2.z + (c1.z - c2.z) * s;
+        p2.wy = Math.sin(s * Math.PI) * 1.1;
+        if (t < 1) requestAnimationFrame(step);
+        else {
+          p1.tile = t2;
+          p2.tile = t1;
+          p1.wx = c2.x; p1.wz = c2.z; p1.wy = 0;
+          p2.wx = c1.x; p2.wz = c1.z; p2.wy = 0;
+          spawnParticles(p1.wx, 0.2, p1.wz, "#f97316", 20);
+          spawnParticles(p2.wx, 0.2, p2.wz, "#f97316", 20);
+          updateHUD();
+          resolve();
+        }
+      }
+      requestAnimationFrame(step);
+    });
+  }
+
+  // =========================================================================
+  // 8. 3D PERSPECTIVE BOARD & ENTITY RENDERER (HTML5 CANVAS)
+  // =========================================================================
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+
+  function resizeCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener("resize", resizeCanvas);
+  resizeCanvas();
+
+  // Touch & Mouse Orbit Controls
+  let pointerDown = false;
+  let lastPX = 0;
+  let lastPY = 0;
+
+  canvas.addEventListener("pointerdown", e => {
+    pointerDown = true;
+    lastPX = e.clientX;
+    lastPY = e.clientY;
+  });
+  window.addEventListener("pointermove", e => {
+    if (!pointerDown) return;
+    const dx = e.clientX - lastPX;
+    const dy = e.clientY - lastPY;
+    lastPX = e.clientX;
+    lastPY = e.clientY;
+    state.camera.targetYaw = Math.max(-0.85, Math.min(0.85, state.camera.targetYaw + dx * 0.0055));
+    state.camera.targetPitch = Math.max(0.42, Math.min(1.48, state.camera.targetPitch + dy * 0.0045));
+  });
+  window.addEventListener("pointerup", () => { pointerDown = false; });
+
+  // Camera buttons
+  document.getElementById("btn-cam-view").addEventListener("click", () => {
+    state.camera.topDown = !state.camera.topDown;
+    state.camera.targetPitch = state.camera.topDown ? 1.45 : 0.68;
+    state.camera.targetYaw = 0;
+  });
+  document.getElementById("btn-cam-zoom-in").addEventListener("click", () => {
+    state.camera.targetZoom = Math.min(1.38, state.camera.targetZoom + 0.14);
+  });
+  document.getElementById("btn-cam-zoom-out").addEventListener("click", () => {
+    state.camera.targetZoom = Math.max(0.75, state.camera.targetZoom - 0.14);
+  });
+  document.getElementById("btn-cam-reset").addEventListener("click", () => {
+    state.camera.topDown = false;
+    state.camera.targetYaw = 0.0;
+    state.camera.targetPitch = 0.68;
+    state.camera.targetZoom = 1.0;
+  });
+
+  // 3D Projection Function
+  function project3D(wx, wy, wz, width, height) {
+    const cam = state.camera;
+    const cosY = Math.cos(cam.yaw);
+    const sinY = Math.sin(cam.yaw);
+    const cosP = Math.cos(cam.pitch);
+    const sinP = Math.sin(cam.pitch);
+
+    // Rotate around Y axis (yaw)
+    const rx = wx * cosY - wz * sinY;
+    const rz1 = wx * sinY + wz * cosY;
+
+    // Rotate around X axis (pitch)
+    // In our world: wy is UP (+), wz is towards viewer (+)
+    const ry = wy * sinP - rz1 * cosP;
+    const rz = wy * cosP + rz1 * sinP;
+
+    const fov = Math.min(width, height) * 1.03 * cam.zoom;
+    const camDist = 13.5;
+    const depth = Math.max(2.0, camDist - rz);
+    const scale = fov / depth;
+
+    const cx = width * 0.5;
+    const cy = height * 0.465;
+
+    return {
+      x: cx + rx * scale,
+      y: cy - ry * scale,
+      scale,
+      depth
+    };
+  }
+
+  function drawPolygon(pts, fill, stroke = null, lineWidth = 1) {
+    if (pts.length < 3) return;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) {
+      ctx.lineTo(pts[i].x, pts[i].y);
+    }
+    ctx.closePath();
+    if (fill) {
+      ctx.fillStyle = fill;
+      ctx.fill();
+    }
+    if (stroke) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = lineWidth;
+      ctx.stroke();
+    }
+  }
+
+  function renderScene(now) {
+    const dt = Math.min(0.05, (now - (state.lastFrame || now)) / 1000);
+    state.lastFrame = now;
+    state.time += dt;
+
+    // Smooth camera interpolation
+    state.camera.yaw += (state.camera.targetYaw - state.camera.yaw) * 0.14;
+    state.camera.pitch += (state.camera.targetPitch - state.camera.pitch) * 0.14;
+    state.camera.zoom += (state.camera.targetZoom - state.camera.zoom) * 0.14;
+
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    ctx.clearRect(0, 0, W, H);
+
+    const theme = THEMES[state.theme] || THEMES.royal;
+
+    // 1. Draw 3D Board Pedestal / Base Frame
+    const bHalf = 5.22;
+    const bTop = -0.18;
+    const bBot = -0.62;
+    const baseTopPts = [
+      project3D(-bHalf, bTop, -bHalf, W, H),
+      project3D(bHalf, bTop, -bHalf, W, H),
+      project3D(bHalf, bTop, bHalf, W, H),
+      project3D(-bHalf, bTop, bHalf, W, H)
+    ];
+    const baseFrontPts = [
+      project3D(-bHalf, bTop, bHalf, W, H),
+      project3D(bHalf, bTop, bHalf, W, H),
+      project3D(bHalf, bBot, bHalf, W, H),
+      project3D(-bHalf, bBot, bHalf, W, H)
+    ];
+    drawPolygon(baseFrontPts, theme.boardBase, "rgba(0,0,0,0.5)", 1.5);
+    drawPolygon(baseTopPts, theme.boardRim, "rgba(255,255,255,0.18)", 2);
+
+    // 2. Collect and depth-sort all 100 3D Tiles (back-to-front painter's algorithm)
+    const tilesToDraw = [];
+    for (let t = 1; t <= 100; t++) {
+      const c = getTileCoords(t);
+      const centerProj = project3D(c.x, 0, c.z, W, H);
+      tilesToDraw.push({ tile: t, c, depth: centerProj.depth, centerProj });
+    }
+    tilesToDraw.sort((a, b) => b.depth - a.depth);
+
+    const halfTile = 0.465;
+    const tileThickness = 0.16;
+
+    for (const item of tilesToDraw) {
+      const { tile, c } = item;
+      const x0 = c.x - halfTile;
+      const x1 = c.x + halfTile;
+      const z0 = c.z - halfTile;
+      const z1 = c.z + halfTile;
+
+      const isLadderStart = LADDERS.some(l => l.from === tile);
+      const isSnakeStart = SNAKES.some(s => s.from === tile);
+      const isOrb = ORB_TILES.includes(tile);
+
+      let topColor = (tile % 2 === 0) ? theme.tileEvenTop : theme.tileOddTop;
+      let sideColor = (tile % 2 === 0) ? theme.tileEvenSide : theme.tileOddSide;
+
+      if (tile === 100) {
+        topColor = "#fef08a";
+        sideColor = "#eab308";
+      } else if (isLadderStart) {
+        topColor = state.theme === "cyber" ? "#064e3b" : "#dcfce7";
+      } else if (isSnakeStart) {
+        topColor = state.theme === "cyber" ? "#450a0a" : "#fee2e2";
+      } else if (isOrb) {
+        topColor = theme.tileAccentTop;
+        sideColor = theme.tileAccentSide;
+      }
+
+      // Project top face corners (y = 0) and bottom front corners (y = -tileThickness)
+      const pTL = project3D(x0, 0, z0, W, H);
+      const pTR = project3D(x1, 0, z0, W, H);
+      const pBR = project3D(x1, 0, z1, W, H);
+      const pBL = project3D(x0, 0, z1, W, H);
+
+      const pBL_bot = project3D(x0, -tileThickness, z1, W, H);
+      const pBR_bot = project3D(x1, -tileThickness, z1, W, H);
+
+      // Front 3D bevel face
+      drawPolygon([pBL, pBR, pBR_bot, pBL_bot], sideColor, "rgba(0,0,0,0.22)", 0.8);
+      // Top 3D tile surface
+      drawPolygon([pTL, pTR, pBR, pBL], topColor, "rgba(0,0,0,0.18)", 1);
+
+      // Tile Number & Special Tile Icons
+      const center = project3D(c.x, 0.02, c.z, W, H);
+      const fontSize = Math.max(8, Math.round(center.scale * 0.25));
+      ctx.fillStyle = (tile === 100) ? "#713f12" : theme.textDark;
+      ctx.font = `800 ${fontSize}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(tile), center.x, center.y - center.scale * 0.11);
+
+      // Special indicator sub-badge on tile
+      if (tile === 100) {
+        const crownPos = project3D(c.x, 0.28 + Math.sin(state.time * 3) * 0.08, c.z, W, H);
+        ctx.font = `${Math.max(12, Math.round(center.scale * 0.42))}px sans-serif`;
+        ctx.fillText("👑", crownPos.x, crownPos.y);
+      } else if (isOrb) {
+        const bobY = 0.22 + Math.sin(state.time * 3.5 + tile) * 0.07;
+        const orbPos = project3D(c.x, bobY, c.z, W, H);
+        const orbRadius = Math.max(4, center.scale * 0.16);
+        const grad = ctx.createRadialGradient(orbPos.x, orbPos.y, 1, orbPos.x, orbPos.y, orbRadius * 1.8);
+        grad.addColorStop(0, "#fef08a");
+        grad.addColorStop(0.5, "#f59e0b");
+        grad.addColorStop(1, "rgba(245, 158, 11, 0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(orbPos.x, orbPos.y, orbRadius * 1.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = `${Math.max(9, Math.round(center.scale * 0.26))}px sans-serif`;
+        ctx.fillText("⭐", orbPos.x, orbPos.y);
+      }
+    }
+
+    // 3. Draw 3D Ladders (elevated above board with rails & rungs)
+    for (const lad of LADDERS) {
+      draw3DLadder(lad, theme, W, H);
+    }
+
+    // 4. Draw 3D Snakes (sinusoidal 3D body with scales, eyes & tongue)
+    for (const snk of SNAKES) {
+      draw3DSnake(snk, W, H);
+    }
+
+    // 5. Draw 3D Player Pawns (sorted back-to-front)
+    const pawnsSorted = [...state.players].sort((a, b) => {
+      const pa = project3D(a.wx, a.wy, a.wz, W, H);
+      const pb = project3D(b.wx, b.wy, b.wz, W, H);
+      return pb.depth - pa.depth;
+    });
+
+    for (const p of pawnsSorted) {
+      draw3DPawn(p, W, H);
+    }
+
+    // 6. Update & Draw 3D Particles
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+      const pt = state.particles[i];
+      pt.x += pt.vx * dt;
+      pt.y += pt.vy * dt;
+      pt.z += pt.vz * dt;
+      pt.vy -= 5.8 * dt; // gravity
+      pt.life -= dt * 1.35;
+      if (pt.life <= 0) {
+        state.particles.splice(i, 1);
+        continue;
+      }
+      const proj = project3D(pt.x, Math.max(0, pt.y), pt.z, W, H);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, pt.life);
+      ctx.fillStyle = pt.color;
+      ctx.beginPath();
+      ctx.arc(proj.x, proj.y, pt.size * (proj.scale / 45), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // 7. Update & Draw Floating 3D Texts
+    for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
+      const ft = state.floatingTexts[i];
+      ft.y += dt * 0.9;
+      ft.life -= dt * 0.75;
+      if (ft.life <= 0) {
+        state.floatingTexts.splice(i, 1);
+        continue;
+      }
+      const proj = project3D(ft.x, ft.y, ft.z, W, H);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, ft.life);
+      ctx.font = `900 ${Math.max(12, Math.round(proj.scale * 0.32))}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.strokeStyle = "rgba(0,0,0,0.85)";
+      ctx.lineWidth = 3.5;
+      ctx.strokeText(ft.text, proj.x, proj.y);
+      ctx.fillStyle = ft.color;
+      ctx.fillText(ft.text, proj.x, proj.y);
+      ctx.restore();
+    }
+
+    // Render 3D Dice in HUD Box
+    render3DDiceWidget();
+
+    requestAnimationFrame(renderScene);
+  }
+
+  function draw3DLadder(ladder, theme, W, H) {
+    const c1 = getTileCoords(ladder.from);
+    const c2 = getTileCoords(ladder.to);
+    const dx = c2.x - c1.x;
+    const dz = c2.z - c1.z;
+    const len = Math.hypot(dx, dz) || 1;
+    const nx = (-dz / len) * 0.19;
+    const nz = (dx / len) * 0.19;
+    const lift = 0.13;
+
+    // Ground shadow
+    const sh1L = project3D(c1.x - nx, 0.02, c1.z - nz, W, H);
+    const sh2L = project3D(c2.x - nx, 0.02, c2.z - nz, W, H);
+    const sh1R = project3D(c1.x + nx, 0.02, c1.z + nz, W, H);
+    const sh2R = project3D(c2.x + nx, 0.02, c2.z + nz, W, H);
+    ctx.save();
+    ctx.strokeStyle = "rgba(0,0,0,0.28)";
+    ctx.lineWidth = Math.max(2, sh1L.scale * 0.09);
+    ctx.beginPath();
+    ctx.moveTo(sh1L.x, sh1L.y); ctx.lineTo(sh2L.x, sh2L.y);
+    ctx.moveTo(sh1R.x, sh1R.y); ctx.lineTo(sh2R.x, sh2R.y);
+    ctx.stroke();
+
+    // Rungs
+    const steps = Math.max(5, Math.floor(len * 2.3));
+    for (let s = 1; s < steps; s++) {
+      const t = s / steps;
+      const rx = c1.x + dx * t;
+      const rz = c1.z + dz * t;
+      const pL = project3D(rx - nx, lift, rz - nz, W, H);
+      const pR = project3D(rx + nx, lift, rz + nz, W, H);
+      ctx.strokeStyle = theme.ladderRung;
+      ctx.lineWidth = Math.max(2, pL.scale * 0.075);
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(pL.x, pL.y);
+      ctx.lineTo(pR.x, pR.y);
+      ctx.stroke();
+    }
+
+    // 3D Rails
+    const r1L = project3D(c1.x - nx, lift, c1.z - nz, W, H);
+    const r2L = project3D(c2.x - nx, lift, c2.z - nz, W, H);
+    const r1R = project3D(c1.x + nx, lift, c1.z + nz, W, H);
+    const r2R = project3D(c2.x + nx, lift, c2.z + nz, W, H);
+
+    ctx.strokeStyle = theme.ladderRail;
+    ctx.lineWidth = Math.max(3, r1L.scale * 0.11);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(r1L.x, r1L.y); ctx.lineTo(r2L.x, r2L.y);
+    ctx.moveTo(r1R.x, r1R.y); ctx.lineTo(r2R.x, r2R.y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function draw3DSnake(snake, W, H) {
+    const segments = 26;
+    const pts = [];
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const p3 = getSnakePoint3D(snake, t);
+      pts.push({ ...project3D(p3.x, p3.y, p3.z, W, H), t });
+    }
+
+    // Draw segments from tail (t=1) to head (t=0) so head overlaps body
+    ctx.save();
+    for (let i = segments; i >= 1; i--) {
+      const pA = pts[i];
+      const pB = pts[i - 1];
+      const taper = 0.35 + (1 - pB.t) * 0.65;
+      const radius = Math.max(2.2, pB.scale * 0.13 * taper);
+      ctx.strokeStyle = (i % 2 === 0) ? snake.color : snake.belly;
+      ctx.lineWidth = radius * 2;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(pA.x, pA.y);
+      ctx.lineTo(pB.x, pB.y);
+      ctx.stroke();
+    }
+
+    // Draw 3D Snake Head at t=0
+    const head = pts[0];
+    const neck = pts[1];
+    const headAngle = Math.atan2(head.y - neck.y, head.x - neck.x);
+    const headR = Math.max(5, head.scale * 0.19);
+
+    ctx.translate(head.x, head.y);
+    ctx.rotate(headAngle);
+
+    // Forked flickering tongue
+    const tongueFlicker = Math.sin(state.time * 10 + snake.from) > 0 ? 1.0 : 0.65;
+    ctx.strokeStyle = "#ef4444";
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(headR * 0.8, 0);
+    ctx.lineTo(headR * (1.55 * tongueFlicker), -3);
+    ctx.moveTo(headR * 0.8, 0);
+    ctx.lineTo(headR * (1.55 * tongueFlicker), 3);
+    ctx.stroke();
+
+    // Head oval
+    ctx.fillStyle = snake.color;
+    ctx.strokeStyle = "rgba(0,0,0,0.55)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, headR * 1.15, headR * 0.88, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Eyes
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(headR * 0.3, -headR * 0.42, headR * 0.28, 0, Math.PI * 2);
+    ctx.arc(headR * 0.3, headR * 0.42, headR * 0.28, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#090d16";
+    ctx.beginPath();
+    ctx.arc(headR * 0.38, -headR * 0.42, headR * 0.14, 0, Math.PI * 2);
+    ctx.arc(headR * 0.38, headR * 0.42, headR * 0.14, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function draw3DPawn(p, W, H) {
+    // Slight offset when multiple players share the same tile
+    const sameTilePlayers = state.players.filter(other => other.tile === p.tile);
+    let ox = 0, oz = 0;
+    if (sameTilePlayers.length > 1 && p.wy === 0) {
+      const idx = sameTilePlayers.findIndex(other => other.id === p.id);
+      const angle = (idx / sameTilePlayers.length) * Math.PI * 2 + 0.5;
+      ox = Math.cos(angle) * 0.19;
+      oz = Math.sin(angle) * 0.19;
+    }
+
+    const wx = p.wx + ox;
+    const wy = p.wy;
+    const wz = p.wz + oz;
+
+    const shadowProj = project3D(wx, 0.02, wz, W, H);
+    const baseProj = project3D(wx, wy + 0.04, wz, W, H);
+    const topProj = project3D(wx, wy + 0.52, wz, W, H);
+    const r = Math.max(6, baseProj.scale * 0.21);
+
+    ctx.save();
+
+    // Ground drop shadow
+    ctx.fillStyle = "rgba(0, 0, 0, 0.38)";
+    ctx.beginPath();
+    ctx.ellipse(shadowProj.x, shadowProj.y, r * 0.95, r * 0.55, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Active Turn Pulsing Ring
+    if (state.players[state.turnIndex]?.id === p.id && !state.gameOver) {
+      const pulse = 1.15 + Math.sin(state.time * 6) * 0.2;
+      ctx.strokeStyle = "#fde047";
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.ellipse(baseProj.x, baseProj.y, r * pulse, r * 0.65 * pulse, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // 3D Pawn Pedestal Base
+    ctx.fillStyle = p.dark;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(baseProj.x, baseProj.y, r * 0.85, r * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 3D Pawn Tapered Body Cone
+    const bodyGrad = ctx.createLinearGradient(baseProj.x - r, topProj.y, baseProj.x + r, baseProj.y);
+    bodyGrad.addColorStop(0, p.color);
+    bodyGrad.addColorStop(1, p.dark);
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.moveTo(baseProj.x - r * 0.78, baseProj.y);
+    ctx.lineTo(topProj.x - r * 0.36, topProj.y + r * 0.2);
+    ctx.lineTo(topProj.x + r * 0.36, topProj.y + r * 0.2);
+    ctx.lineTo(baseProj.x + r * 0.78, baseProj.y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // 3D Pawn Spherical Head
+    const headGrad = ctx.createRadialGradient(
+      topProj.x - r * 0.2, topProj.y - r * 0.2, r * 0.1,
+      topProj.x, topProj.y, r * 0.58
+    );
+    headGrad.addColorStop(0, "#ffffff");
+    headGrad.addColorStop(0.35, p.color);
+    headGrad.addColorStop(1, p.dark);
+    ctx.fillStyle = headGrad;
+    ctx.beginPath();
+    ctx.arc(topProj.x, topProj.y, r * 0.52, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Venom Shield 3D Energy Aura
+    if (p.shield) {
+      ctx.strokeStyle = "rgba(56, 189, 248, 0.85)";
+      ctx.fillStyle = "rgba(56, 189, 248, 0.18)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(
+        (baseProj.x + topProj.x) * 0.5,
+        (baseProj.y + topProj.y) * 0.5,
+        r * 1.25,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // Floating Name Tag
+    ctx.font = `800 ${Math.max(9, Math.round(r * 0.65))}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "rgba(0,0,0,0.85)";
+    ctx.lineWidth = 2.5;
+    ctx.strokeText(p.name, topProj.x, topProj.y - r * 0.8);
+    ctx.fillText(p.name, topProj.x, topProj.y - r * 0.8);
+
+    ctx.restore();
+  }
+
+  // =========================================================================
+  // 9. 3D TUMBLING CUBE DICE RENDERER
+  // =========================================================================
+  const diceCanvas = document.getElementById("diceCanvas");
+  const dCtx = diceCanvas.getContext("2d");
+
+  const CUBE_VERTS = [
+    [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
+    [-1, -1,  1], [1, -1,  1], [1, 1,  1], [-1, 1,  1]
+  ];
+
+  // Each face has 4 vertex indices (CCW Looking at outer face) and its value (1..6)
+  const CUBE_FACES = [
+    { verts: [4, 5, 6, 7], val: 1 }, // +Z front
+    { verts: [1, 0, 3, 2], val: 6 }, // -Z back
+    { verts: [5, 1, 2, 6], val: 2 }, // +X right
+    { verts: [0, 4, 7, 3], val: 5 }, // -X left
+    { verts: [7, 6, 2, 3], val: 3 }, // +Y top
+    { verts: [0, 1, 5, 4], val: 4 }  // -Y bottom
+  ];
+
+  const PIP_LAYOUTS = {
+    1: [[0, 0]],
+    2: [[-0.45, -0.45], [0.45, 0.45]],
+    3: [[-0.48, -0.48], [0, 0], [0.48, 0.48]],
+    4: [[-0.45, -0.45], [0.45, -0.45], [-0.45, 0.45], [0.45, 0.45]],
+    5: [[-0.48, -0.48], [0.48, -0.48], [0, 0], [-0.48, 0.48], [0.48, 0.48]],
+    6: [[-0.45, -0.5], [0.45, -0.5], [-0.45, 0], [0.45, 0], [-0.45, 0.5], [0.45, 0.5]]
+  };
+
+  function rotateVert3D(v, rx, ry, rz) {
+    let [x, y, z] = v;
+    // Rotate X
+    let y1 = y * Math.cos(rx) - z * Math.sin(rx);
+    let z1 = y * Math.sin(rx) + z * Math.cos(rx);
+    y = y1; z = z1;
+    // Rotate Y
+    let x2 = x * Math.cos(ry) + z * Math.sin(ry);
+    let z2 = -x * Math.sin(ry) + z * Math.cos(ry);
+    x = x2; z = z2;
+    // Rotate Z
+    let x3 = x * Math.cos(rz) - y * Math.sin(rz);
+    let y3 = x * Math.sin(rz) + y * Math.cos(rz);
+    return [x3, y3, z];
+  }
+
+  function render3DDiceWidget() {
+    const W = diceCanvas.width;
+    const H = diceCanvas.height;
+    dCtx.clearRect(0, 0, W, H);
+
+    const { rx, ry, rz } = state.dice3D;
+    const tVerts = CUBE_VERTS.map(v => rotateVert3D(v, rx, ry, rz));
+
+    const projVert = ([x, y, z]) => {
+      const scale = 34 * (4.2 / (4.2 - z * 0.45));
+      return { x: W * 0.5 + x * scale, y: H * 0.5 - y * scale, z };
+    };
+
+    // Sort faces by average Z
+    const facesSorted = CUBE_FACES.map(f => {
+      const fv = f.verts.map(idx => tVerts[idx]);
+      const avgZ = (fv[0][2] + fv[1][2] + fv[2][2] + fv[3][2]) * 0.25;
+      return { ...f, fv, avgZ };
+    }).sort((a, b) => a.avgZ - b.avgZ);
+
+    for (const face of facesSorted) {
+      if (face.avgZ < -0.35) continue; // backface cull
+      const pPts = face.fv.map(projVert);
+
+      const brightness = Math.round(215 + face.avgZ * 38);
+      dCtx.fillStyle = `rgb(${brightness}, ${brightness - 6}, ${brightness - 18})`;
+      dCtx.strokeStyle = "#b45309";
+      dCtx.lineWidth = 2.2;
+
+      dCtx.beginPath();
+      dCtx.moveTo(pPts[0].x, pPts[0].y);
+      for (let i = 1; i < 4; i++) dCtx.lineTo(pPts[i].x, pPts[i].y);
+      dCtx.closePath();
+      dCtx.fill();
+      dCtx.stroke();
+
+      // Draw Pips using bilinear interpolation on the 3D face
+      const pips = PIP_LAYOUTS[face.val] || [];
+      for (const [pu, pv] of pips) {
+        const u = (pu + 1) * 0.5;
+        const v = (pv + 1) * 0.5;
+        // Bilinear interpolate 3D point on quad
+        const [v0, v1, v2, v3] = face.fv;
+        const px = (1 - u) * (1 - v) * v0[0] + u * (1 - v) * v1[0] + u * v * v2[0] + (1 - u) * v * v3[0];
+        const py = (1 - u) * (1 - v) * v0[1] + u * (1 - v) * v1[1] + u * v * v2[1] + (1 - u) * v * v3[1];
+        const pz = (1 - u) * (1 - v) * v0[2] + u * (1 - v) * v1[2] + u * v * v2[2] + (1 - u) * v * v3[2];
+        const sc = projVert([px, py, pz]);
+
+        dCtx.fillStyle = face.val === 1 || face.val === 4 ? "#dc2626" : "#0f172a";
+        dCtx.beginPath();
+        dCtx.arc(sc.x, sc.y, 4.4, 0, Math.PI * 2);
+        dCtx.fill();
+      }
+    }
+  }
+
+  // =========================================================================
+  // 10. MODAL & BUTTON BINDINGS
+  // =========================================================================
+  const setupModal = document.getElementById("modal-setup");
+  const guideModal = document.getElementById("modal-guide");
+  const winModal = document.getElementById("modal-win");
+
+  document.getElementById("btn-newgame").addEventListener("click", () => {
+    setupModal.classList.add("open");
+  });
+  document.getElementById("close-setup").addEventListener("click", () => {
+    setupModal.classList.remove("open");
+  });
+
+  document.getElementById("btn-guide").addEventListener("click", () => {
+    guideModal.classList.add("open");
+  });
+  document.getElementById("close-guide").addEventListener("click", () => {
+    guideModal.classList.remove("open");
+  });
+  document.getElementById("close-guide-bottom").addEventListener("click", () => {
+    guideModal.classList.remove("open");
+  });
+
+  document.getElementById("btn-play-again").addEventListener("click", () => {
+    winModal.classList.remove("open");
+    startNewGame();
+  });
+
+  document.getElementById("btn-sound").addEventListener("click", e => {
+    sfx.enabled = !sfx.enabled;
+    e.currentTarget.textContent = sfx.enabled ? "🔊" : "🔇";
+  });
+
+  // Setup Option Selectors
+  document.querySelectorAll("#mode-options .opt-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#mode-options .opt-btn").forEach(b => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      state.mode = btn.getAttribute("data-mode");
+    });
+  });
+
+  document.querySelectorAll("#theme-options .opt-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#theme-options .opt-btn").forEach(b => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      state.theme = btn.getAttribute("data-theme");
+    });
+  });
+
+  document.getElementById("btn-start-match").addEventListener("click", () => {
+    state.exact100 = document.getElementById("chk-exact100").checked;
+    state.bonus6 = document.getElementById("chk-bonus6").checked;
+    setupModal.classList.remove("open");
+    startNewGame();
+  });
+
+  // =========================================================================
+  // 11. INITIALIZE GAME
+  // =========================================================================
+  if (!loadGameState()) {
+    startNewGame();
+  } else {
+    setDiceFaceOrientation(state.diceValue || 6);
+    updateHUD();
+    const rName = currentPlayer().name; setBanner(`Resumed saved 3D match! ${rName === 'You' ? 'Your' : rName + "'s"} turn.`);
+    checkBotTurn();
+  }
+
+  requestAnimationFrame(renderScene);
+})();
+</script>
+</body>
+</html>
